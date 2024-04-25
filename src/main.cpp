@@ -10,16 +10,17 @@ int main(void)
     SetTargetFPS(60);
 
     ChessBoard board(SCREEN_HEIGHT, true);
-    board.loadAssets();
     board.printBoard();
 
     while (!WindowShouldClose())
     {
         BeginDrawing();
-
         ClearBackground(RAYWHITE);
 
+        board.printBoard();
+
         board.updateBoard();
+
 
         EndDrawing();
     }

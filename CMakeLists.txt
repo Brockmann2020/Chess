@@ -10,11 +10,12 @@ set(BUILD_GAMES    OFF CACHE BOOL "" FORCE) # or games
 set(EXECUTABLE_NAME ChessBot)
 
 set(SRC_FILES
-        ${CMAKE_CURRENT_LIST_DIR}/src/main.cpp
-        ${CMAKE_CURRENT_LIST_DIR}/src/gui/chessboard.cpp
-        ${CMAKE_CURRENT_LIST_DIR}/src/engine/board.cpp
+        src/main.cpp
+        src/gui/chessboard.cpp
+        src/engine/board.cpp
         src/engine/board.cpp
         src/engine/piece.cpp
+        src/gui/chesspiece.cpp
 )
 
 set(INCLUDE_DIRS

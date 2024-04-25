@@ -3,21 +3,22 @@
 
 #endif //RAYLIB_TEMPLATE_BOARD_H
 
+#include <vector>
 #include "raylib.h"
 #include "array"
 #include "map"
 #include "string"
 #include "board.h"
 #include "memory"
+#include "chesspiece.h"
 
 class ChessBoard {
 private:
     Board _board;
     unsigned int _size;
     bool _inverted = false;
-    //std::array<Texture2D , 12> _assets;
-    //std::array<std::shared_ptr<ChessPiece>, 12> _pieces;
-    std::map<int, std::shared_ptr<Texture2D>> _chessPieces;
+    std::vector<std::shared_ptr<ChessPiece>> _pieces;
+    std::map<int, std::shared_ptr<Texture2D>> _assets;
     Color _black = Color{126,149,94,255};
     Color _white = Color{237,238,213,255};
 public:
@@ -25,4 +26,6 @@ public:
     void printBoard();
     void updateBoard();
     void loadAssets();
+    void addPiece(std::shared_ptr<ChessPiece> piece);
+    void removePiece(size_t index);
 };
