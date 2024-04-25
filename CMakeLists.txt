@@ -36,3 +36,6 @@ target_include_directories(${EXECUTABLE_NAME} PRIVATE ${INCLUDE_DIRS})
 
 target_link_libraries(ChessBot PRIVATE ${CMAKE_CURRENT_LIST_DIR}/lib/raylib/lib/raylib.dll)
 target_compile_definitions(ChessBot PUBLIC ASSETS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/assets/") # Set the asset path macro to the absolute path on the dev machine
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_definitions(ChessBot PUBLIC DEBUG)
+endif()

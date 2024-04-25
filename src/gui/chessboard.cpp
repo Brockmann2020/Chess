@@ -54,20 +54,39 @@ void ChessBoard::printBoard() {
 
 void ChessBoard::updateBoard() {
     Vector2 mousePosition = GetMousePosition();
-    for (const auto& piece : _pieces) {
-        float distance_x = 0;
-        float distance_y = 0;
-        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mousePosition, piece->getCollisionRect())) {
-            distance_x = mousePosition.x - piece->getCollisionRect().x;
-            distance_y = mousePosition.y - piece->getCollisionRect().y;
+    bool mousePressed = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    bool mouseDown = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
 
-            piece->setPos({mousePosition.x - distance_x, mousePosition.y - distance_y});
-            piece->setCollisionRect({mousePosition.x - distance_x, mousePosition.y - distance_y, piece->getCollisionRect().width, piece->getCollisionRect().height});
+    // Handle starting the drag
+    if (mousePressed) {
+        for (const auto& piece : _pieces) {
+            if (CheckCollisionPointRec(mousePosition, piece->getCollisionRect())) {
+                _draggedPiece = piece;
+                _dragOffset.x = mousePosition.x - piece->getCollisionRect().x;
+                _dragOffset.y = mousePosition.y - piece->getCollisionRect().y;
+                _fallbackPosition = _draggedPiece->getPos();
+                break;  // Start dragging the first piece we find under cursor
+            }
         }
+    }
 
-        DrawTexture(*piece->getTexture(), piece->getPos().x , piece->getPos().y, WHITE);
-        // Debug: show collision rectangle
+    // Update piece position if dragging
+    if (mouseDown && _draggedPiece != nullptr) {
+        _draggedPiece->setPos({mousePosition.x - _dragOffset.x, mousePosition.y - _dragOffset.y});
+        Rectangle rect = _draggedPiece->getCollisionRect();
+        _draggedPiece->setCollisionRect({mousePosition.x - _dragOffset.x, mousePosition.y - _dragOffset.y, rect.width, rect.height});
+    } else if (_draggedPiece != nullptr) {
+        _draggedPiece->setPos(_fallbackPosition);
+        _draggedPiece->setCollisionRect({_fallbackPosition.x, _fallbackPosition.y, _draggedPiece->getCollisionRect().width, _draggedPiece->getCollisionRect().height});
+        _draggedPiece = nullptr;  // Stop dragging
+    }
+
+    // Drawing and other updates
+    for (const auto& piece : _pieces) {
+        DrawTexture(*piece->getTexture(), piece->getPos().x, piece->getPos().y, WHITE);
+        #ifdef DEBUG
         DrawRectangleLines(piece->getCollisionRect().x, piece->getCollisionRect().y, piece->getCollisionRect().width, piece->getCollisionRect().height, RED);
+        #endif
     }
 }
 

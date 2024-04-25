@@ -19,6 +19,9 @@ private:
     bool _inverted = false;
     std::vector<std::shared_ptr<ChessPiece>> _pieces;
     std::map<int, std::shared_ptr<Texture2D>> _assets;
+    std::shared_ptr<ChessPiece> _draggedPiece;
+    Vector2 _dragOffset;
+    Vector2 _fallbackPosition;
     Color _black = Color{126,149,94,255};
     Color _white = Color{237,238,213,255};
 public:
