@@ -85,9 +85,6 @@ void ChessBoard::updateBoard() {
         // Normalise Position
         int boardIndex = ((int) (mousePosition.x / _squareSize)) + 8 * ((int) (mousePosition.y / _squareSize));
 
-        //TODO: Only allow move if piece is correct color to move
-        //TODO: Only allow move if captured piece is of opposite color or if targeted square is empty
-        //TODO: Remove captured piece
         // Check if target square is empty or has a piece of opposite color
         if (_board.getSquares()[boardIndex] == Piece::None || Piece::isWhite(_draggedPiece->getCode()) != Piece::isWhite(_board.getSquares()[boardIndex])) {
             // Remove Enemy Piece
