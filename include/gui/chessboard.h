@@ -14,21 +14,27 @@
 
 class ChessBoard {
 private:
+    static float _squareSize;
     Board _board;
     unsigned int _size;
-    bool _inverted = false;
+    bool _playsWhite = true;
+    bool _whiteToMove;
     std::vector<std::shared_ptr<ChessPiece>> _pieces;
     std::map<int, std::shared_ptr<Texture2D>> _assets;
     std::shared_ptr<ChessPiece> _draggedPiece;
     Vector2 _dragOffset;
-    Vector2 _fallbackPosition;
     Color _black = Color{126,149,94,255};
     Color _white = Color{237,238,213,255};
+
+    Vector2 _fallbackPosition;
 public:
     explicit ChessBoard(unsigned int size, bool plays_white);
     void printBoard();
     void updateBoard();
     void loadAssets();
     void addPiece(std::shared_ptr<ChessPiece> piece);
-    void removePiece(size_t index);
+    std::shared_ptr<ChessPiece> findPiece(int boardIndex);
+    void removePiece(int boardIndex);
+    int getCurrentColor() const;
+    static int getSquareSize();
 };

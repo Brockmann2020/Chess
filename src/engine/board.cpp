@@ -24,6 +24,13 @@ Board::Board() {
     }
 }
 
+bool Board::movePiece(int piece, int square) {
+    int draggedPiece = _squares[piece];
+    _squares[piece] = Piece::None;
+    _squares[square] = draggedPiece;
+    return true;
+}
+
 const std::array<int, 64>& Board::getSquares() const {
     return _squares;
 }
