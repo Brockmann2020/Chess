@@ -11,11 +11,11 @@ void ChessPiece::movePiece(Vector2 mousePosition) {
 
 
 // Getters
-unsigned int ChessPiece::getBoardIndex() const {
+int ChessPiece::getBoardIndex() const {
     return _boardIndex;
 }
 
-unsigned int ChessPiece::getCode() const {
+int ChessPiece::getCode() const {
     return _code;
 }
 

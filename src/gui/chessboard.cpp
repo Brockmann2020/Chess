@@ -52,6 +52,16 @@ void ChessBoard::printBoard() {
             bool isWhite = ( file + rank ) % 2 == 0;
 
             DrawRectangle(pos_x, pos_y, square_size, square_size, isWhite ? _white : _black);
+
+            if (!_legalMoves.empty()) {
+                int square = rank * 8 + file;
+
+                for (auto & move : _legalMoves) {
+                    if (square == move.target) {
+                        DrawRectangle(pos_x, pos_y, square_size, square_size, isWhite ? _lightRed : _darkRed);
+                    }
+                }
+            }
         }
     }
 }
@@ -69,6 +79,8 @@ void ChessBoard::updateBoard() {
                 _dragOffset.x = mousePosition.x - piece->getCollisionRect().x;
                 _dragOffset.y = mousePosition.y - piece->getCollisionRect().y;
                 _fallbackPosition = _draggedPiece->getPos();
+
+                _legalMoves = _board.generateMovesForPiece(_draggedPiece->getBoardIndex());
                 break;  // Start dragging the first we find at the cursor
             }
         }
@@ -79,28 +91,43 @@ void ChessBoard::updateBoard() {
         _draggedPiece->setPos({mousePosition.x - _dragOffset.x, mousePosition.y - _dragOffset.y});
         Rectangle rect = _draggedPiece->getCollisionRect();
         _draggedPiece->setCollisionRect({mousePosition.x - _dragOffset.x, mousePosition.y - _dragOffset.y, rect.width, rect.height});
-    } else if (_draggedPiece != nullptr) {
-        // Move Validation
+    } else if (_draggedPiece != nullptr && _whiteToMove) {
 
         // Normalise Position
-        int boardIndex = ((int) (mousePosition.x / _squareSize)) + 8 * ((int) (mousePosition.y / _squareSize));
+        int targetSquare = ((int) (mousePosition.x / _squareSize)) + 8 * ((int) (mousePosition.y / _squareSize));
+
+        // Move Validation
+        bool isLegal = false;
+        //std::vector<Move> moves = _board.generateMovesForPiece(_draggedPiece->getBoardIndex());
+        Move nextMove;
+        for (auto & move : _legalMoves) {
+            if (move.target == targetSquare) {
+                isLegal = true;
+                nextMove = move;
+                break;
+            }
+        }
 
         // Check if target square is empty or has a piece of opposite color
-        if (_board.getSquares()[boardIndex] == Piece::None || Piece::isWhite(_draggedPiece->getCode()) != Piece::isWhite(_board.getSquares()[boardIndex])) {
+        if (isLegal) {
             // Remove Enemy Piece
-            if (_board.getSquares()[boardIndex] != Piece::None || (getCurrentColor() & 8) != (_board.getSquares()[boardIndex] & 8)) {
-                removePiece(boardIndex);
+            if (nextMove.enPassant) {
+                removePiece(_whiteToMove ? targetSquare + 8 : targetSquare - 8);
+            } else if (_board.getSquares()[targetSquare] != Piece::None) {
+                removePiece(targetSquare);
             }
 
             // Normalize Position
             int oldIndex = _draggedPiece->getBoardIndex();
             _draggedPiece->movePiece(mousePosition);
-            _board.movePiece(oldIndex, _draggedPiece->getBoardIndex());
+            _board.movePiece({oldIndex, _draggedPiece->getBoardIndex(), _draggedPiece->getCode()});
             _whiteToMove = !_whiteToMove;
+            _legalMoves = {};
         } else {
             // Reset Piece
             _draggedPiece->setPos(_fallbackPosition);
             _draggedPiece->setCollisionRect({_fallbackPosition.x, _fallbackPosition.y, _draggedPiece->getCollisionRect().width, _draggedPiece->getCollisionRect().height});
+            _legalMoves = {};
         }
 
         // End Move

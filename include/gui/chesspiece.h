@@ -8,8 +8,8 @@
 
 class ChessPiece {
 private:
-    unsigned int _boardIndex;
-    unsigned int _code;
+    int _boardIndex;
+    int _code;
     Vector2 _pos;
     Vector2 _fallbackPosition;
     std::shared_ptr <Texture> _texture;
@@ -22,8 +22,8 @@ public:
             _texture(texture),
             _collisionRect(_collisionRect) {};
 
-    unsigned int getBoardIndex() const;
-    unsigned int getCode() const;
+    int getBoardIndex() const;
+    int getCode() const;
     Vector2 getPos() const;
     void setPos(const Vector2& newPos);
     std::shared_ptr <Texture> getTexture() const;

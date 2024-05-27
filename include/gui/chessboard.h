@@ -20,11 +20,14 @@ private:
     bool _playsWhite = true;
     bool _whiteToMove;
     std::vector<std::shared_ptr<ChessPiece>> _pieces;
+    std::vector<Move> _legalMoves;
     std::map<int, std::shared_ptr<Texture2D>> _assets;
     std::shared_ptr<ChessPiece> _draggedPiece;
     Vector2 _dragOffset;
     Color _black = Color{126,149,94,255};
     Color _white = Color{237,238,213,255};
+    Color _darkRed = Color{255, 0, 0, 130};
+    Color _lightRed = Color{255, 0, 0, 100};
 
     Vector2 _fallbackPosition;
 public:
