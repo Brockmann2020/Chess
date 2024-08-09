@@ -3,6 +3,7 @@
 #include "memory"
 #include <algorithm>
 #include <iostream>
+#include <random>
 
 Board::Board() {
     // Clear the board
@@ -27,9 +28,42 @@ Board::Board() {
 }
 
 bool Board::movePiece(Move move) {
-    int draggedPiece = _squares[move.origin];
-    _squares[move.origin] = Piece::None;
-    _squares[move.target] = draggedPiece;
+
+    if (move.MoveType == MoveType::ShortCastle || move.MoveType == MoveType::LongCastle) {
+        // Handle Castling
+        int king = _squares[move.origin];
+        int rook = _squares[move.MoveType == MoveType::ShortCastle ? move.origin + 3 : move.origin - 4];
+        _squares[move.MoveType == MoveType::ShortCastle ? move.origin + 1 : move.origin - 1] = rook;
+        _squares[move.target] = king;
+        _squares[move.origin] = Piece::None;
+    } else {
+        // Regular Move
+        int draggedPiece = _squares[move.origin];
+        _squares[move.origin] = Piece::None;
+        _squares[move.target] = draggedPiece;
+    }
+
+    // Handle Castling Rights
+    if (_whiteToMove) {
+        if ((move.piece & 7) == Piece::Rook && move.origin == 63) {
+            _whiteShortCastleLegal = false;
+        } else if ((move.piece & 7) == Piece::Rook && move.origin == 56) {
+            _whiteLongCastleLegal = false;
+        } else if ((move.piece & 7) == Piece::King) {
+            _whiteShortCastleLegal = false;
+            _whiteLongCastleLegal = false;
+        }
+    } else {
+        if ((move.piece & 7) == Piece::Rook && move.origin == 63) {
+            _blackShortCastleLegal = false;
+        } else if ((move.piece & 7) == Piece::Rook && move.origin == 56) {
+            _blackLongCastleLegal = false;
+        } else if ((move.piece & 7) == Piece::King) {
+            _blackShortCastleLegal = false;
+            _blackLongCastleLegal = false;
+        }
+    }
+    _moveCount++;
     _whiteToMove = !_whiteToMove;
     _moves.push_back(move);
     return true;
@@ -39,7 +73,7 @@ const std::array<int, 64>& Board::getSquares() const {
     return _squares;
 }
 
-std::vector<Move> Board::generateMoves(int depth) {
+std::vector<Move> Board::generateMoves(bool updateAttackMap) {
     std::vector<Move> moves;
     int moveCount = 0;
     for (int i = 0; i < _squares.size(); i++) {
@@ -51,10 +85,13 @@ std::vector<Move> Board::generateMoves(int depth) {
             continue;
         }
         std::vector<Move> allMovesForSquare = generateMovesForPiece(i);
+        moveCount += allMovesForSquare.size();
         moves.insert(moves.end(), allMovesForSquare.begin(), allMovesForSquare.end());
     }
+    _engineCallCount++;
+    _movesGenerated += moveCount;
     std::cout << moveCount << " moves found!" << std::endl;
-    return {};
+    return moves;
 }
 
 std::vector<Move> Board::generateMovesForPiece(int index) {
@@ -68,110 +105,70 @@ std::vector<Move> Board::generateMovesForPiece(int index) {
     std::vector<std::array<int, 2>> knightPatterns = {{-2, -1}, {-2, 1}, {-1, -2}, {-1, 2}, {1, -2}, {1, 2}, {2, -1}, {2, 1}};
     std::vector<std::array<int, 2>> bishopPatterns = {{1,1}, {1,-1}, {-1,1}, {-1,-1}};
     std::vector<std::array<int, 2>> rookPatterns = {{1,0}, {0,1}, {-1,0}, {0,-1}};
-    std::vector<std::array<int, 2>> queenKingPatterns = {{1,0}, {0,1}, {-1,0}, {0,-1}, {1,1}, {1,-1}, {-1,1}, {-1,-1}};
-
+    std::vector<std::array<int, 2>> queenPatterns = {{1,0}, {0,1}, {-1,0}, {0,-1}, {1,1}, {1,-1}, {-1,1}, {-1,-1}};
 
     switch (piece & 7) {
-        case Piece::Pawn: return generatePawnMoves(index, isWhite);
-        case Piece::Knight: return generateSimpleMoves(index, isWhite, knightPatterns, true);
-        case Piece::Bishop: return generateSimpleMoves(index, isWhite, bishopPatterns, false);
-        case Piece::Rook: return generateSimpleMoves(index, isWhite, rookPatterns, false);
-        case Piece::Queen: return generateSimpleMoves(index, isWhite, queenKingPatterns, false);
-        case Piece::King: return generateSimpleMoves(index, isWhite, queenKingPatterns, true);
+        case Piece::Pawn: return generatePawnMoves(index, isWhite, false);
+        case Piece::Knight: return generateSimpleMoves(index, isWhite, knightPatterns, true, false);
+        case Piece::Bishop: return generateSimpleMoves(index, isWhite, bishopPatterns, false, false);
+        case Piece::Rook: return generateSimpleMoves(index, isWhite, rookPatterns, false, false);
+        case Piece::Queen: return generateSimpleMoves(index, isWhite, queenPatterns, false, false);
+        case Piece::King: return generateKingMoves(index, isWhite, false);
         default: return {};
     }
 }
 
-std::vector<Move> generatePawnMoves() {
-    return{};
-}
-
-std::vector<Move> Board::generatePawnMoves(int index, bool isWhite) {
+std::vector<Move> Board::generatePawnMoves(int index, bool isWhite, bool updateAttackMap) {
     std::vector<Move> moves;
-    if (!isWhite) {
-        // First Move
-        if (index >= 8 && index <=15) {
-            if ((_squares[index + 16] & 7) == Piece::None) {
-                moves.push_back({index, index + 16});
-            }
+    int direction = isWhite ? -1 : 1;
+    int startRow = isWhite ? 6 : 1;
+    int enPassantRow = isWhite ? 3 : 4;
+
+    // First Move
+    if (index / 8 == startRow) {
+        if ((_squares[index + 16 * direction] & 7) == Piece::None && (_squares[index + 8 * direction] & 7) == Piece::None) {
+            moves.push_back({index, index + 16 * direction});
         }
-        // Regular Moves
-        if ((_squares[index + 8] & 7) == Piece::None) {
-            moves.push_back({index, index + 8});
-        }
-        if (index % 8 != 0 && (_squares[index + 7] & 7) != Piece::None && (_squares[index + 7] & 8) != (_squares[index] & 8)) {
-            moves.push_back({index, index + 7});
-        }
-        if (index % 8 != 7 && (_squares[index + 9] & 7) != Piece::None && (_squares[index + 9] & 8) != (_squares[index] & 8)) {
-            moves.push_back({index, index + 9});
-        }
-        // En Passant
-        if (!_moves.empty()) {
-            Move lastMove = _moves[_moves.size() - 1];
-            if ((lastMove.piece & 7) == Piece::Pawn && lastMove.origin == index + 15 && lastMove.target == index - 1) {
-                moves.push_back({index, index + 7, Piece::Pawn, true});
-            }
-            if ((lastMove.piece & 7) == Piece::Pawn && lastMove.origin == index + 17 && lastMove.target == index + 1) {
-                moves.push_back({index, index + 9, Piece::Pawn, true});
-            }
-        }
-    } else {
-        if (index >= 48 && index <= 55) {
-            if ((_squares[index -16] & 7) == Piece::None) {
-                moves.push_back({index, index - 16});
-            }
-        }
-        if ((_squares[index -8] & 7) == Piece::None) {
-            moves.push_back({index, index - 8});
-        }
-        if (index % 8 != 7 && (_squares[index - 7] & 7) != Piece::None && (_squares[index - 7] & 8) != (_squares[index] & 8)) {
-            moves.push_back({index, index -7});
-        }
-        if (index % 8 != 0 && (_squares[index - 9] & 7) != Piece::None&& (_squares[index - 9] & 8) != (_squares[index] & 8)) {
-            moves.push_back({index, index - 9});
-        }
-        // En Passant
-        if (!_moves.empty()) {
-            Move lastMove = _moves[_moves.size() - 1];
-            if ((lastMove.piece & 7) == Piece::Pawn && lastMove.origin == index - 15 && lastMove.target == index + 1 ) {
-                moves.push_back({index, index - 7, Piece::Pawn, true});
-            }
-            if ((lastMove.piece & 7) == Piece::Pawn && lastMove.origin == index - 17 && lastMove.target == index - 1 ) {
-                moves.push_back({index, index - 9, Piece::Pawn, true});
+    }
+
+    // Regular Move
+    if ((_squares[index + 8 * direction] & 7) == Piece::None) {
+        moves.push_back({index, index + 8 * direction});
+    }
+
+    // Captures
+    if (index % 8 != 0 && (_squares[index + 7 * direction] & 7) != Piece::None && (_squares[index + 7 * direction] & 8) != (_squares[index] & 8)) {
+        moves.push_back({index, index + 7 * direction});
+    }
+    if (index % 8 != 7 && (_squares[index + 9 * direction] & 7) != Piece::None && (_squares[index + 9 * direction] & 8) != (_squares[index] & 8)) {
+        moves.push_back({index, index + 9 * direction});
+    }
+
+    // En Passant
+    if (!_moves.empty()) {
+        Move lastMove = _moves.back();
+        int lastMovePiece = _squares[lastMove.target];
+
+        if ((lastMovePiece & 7) == Piece::Pawn) {
+            if (std::abs(lastMove.origin - lastMove.target) == 16) { // Double-step move
+                if (lastMove.target / 8 == enPassantRow) {
+                    // Check left capture
+                    if (lastMove.target == index + 1 && index % 8 != 0) {
+                        moves.push_back({index, index + 7 * direction, Piece::Pawn, true});
+                    }
+                    // Check right capture
+                    if (lastMove.target == index - 1 && index % 8 != 7) {
+                        moves.push_back({index, index + 9 * direction, Piece::Pawn, true});
+                    }
+                }
             }
         }
     }
+
     return moves;
 }
 
-std::vector<Move> Board::generateKnightMoves(int index, bool isWhite) {
-    std::vector<int> knightOffset;
-    // Possible moves of a knight from a given position
-    int knightMoves[8][2] = {{-2, -1}, {-2, 1}, {-1, -2}, {-1, 2}, {1, -2}, {1, 2}, {2, -1}, {2, 1}};
-
-    int rank = index / 8;
-    int file = index % 8;
-
-    for (auto& move : knightMoves) {
-        int newRank = rank + move[0];
-        int newFile = file + move[1];
-
-        // Check if the new position is within the board limits
-        if (newRank >= 0 && newRank < 8 && newFile >= 0 && newFile < 8) {
-            knightOffset.push_back(newRank * 8 + newFile);
-        }
-    }
-
-    std::vector<Move> moves;
-    for (auto & move : knightOffset) {
-        if ((_squares[move] & 7) == Piece::None || (_squares[move] & 8) != (_squares[index] & 8)) {
-            moves.push_back({index, move});
-        }
-    }
-    return moves;
-}
-
-std::vector<Move> Board::generateSimpleMoves(int index, bool isWhite, std::vector<std::array<int, 2>> movePatterns, bool limit) {
+std::vector<Move> Board::generateSimpleMoves(int index, bool isWhite, std::vector<std::array<int, 2>> movePatterns, bool limit, bool updateAttackMap) {
     std::vector<Move> moves;
 
     int rank = index / 8;
@@ -187,7 +184,7 @@ std::vector<Move> Board::generateSimpleMoves(int index, bool isWhite, std::vecto
             if (newRank >= 0 && newRank < 8 && newFile >= 0 && newFile < 8) {
                 int newIndex = newRank * 8 + newFile;
                 if ((_squares[newIndex] & 7) == Piece::None || (_squares[newIndex] & 8) != (_squares[index] & 8)) {
-                    moves.push_back({index, newIndex});
+                    moves.push_back({index, newIndex, _squares[newIndex] & 7});
                     // Stop if it's a capture
                     if ((_squares[newIndex] & 7) != Piece::None) {
                         break;
@@ -209,6 +206,90 @@ std::vector<Move> Board::generateSimpleMoves(int index, bool isWhite, std::vecto
     return moves;
 }
 
-int Board::signum(int value) {
-    return (value > 0) - (value < 0);
+std::vector<Move> Board::generateKingMoves(int index, bool isWhite, bool updateAttackMap) {
+    std::vector<std::array<int, 2>> KingPatterns = {{1,0}, {0,1}, {-1,0}, {0,-1}, {1,1}, {1,-1}, {-1,1}, {-1,-1}};
+    std::vector<int> possibleTargets;
+    std::vector<Move> legalMoves;
+
+    // Handle Castling
+    auto sharedLegalMoves = std::make_shared<std::vector<Move>>(legalMoves);
+    if (_whiteToMove) {
+        handleCastling(index, sharedLegalMoves, _whiteShortCastleLegal, _whiteLongCastleLegal);
+    } else {
+        handleCastling(index, sharedLegalMoves, _blackShortCastleLegal, _blackLongCastleLegal);
+    }
+    legalMoves = *sharedLegalMoves;
+
+    int rank = index / 8;
+    int file = index % 8;
+
+    for (auto& move : KingPatterns) {
+        int newRank = rank + move[0];
+        int newFile = file + move[1];
+
+        // Check if the new position is within the board limits
+        if (newRank >= 0 && newRank < 8 && newFile >= 0 && newFile < 8) {
+            possibleTargets.push_back(newRank * 8 + newFile);
+        }
+    }
+
+    for (auto & move : possibleTargets) {
+        if ((_squares[move] & 7) == Piece::None || (_squares[move] & 8) != (_squares[index] & 8)) {
+            legalMoves.push_back({index, move, Piece::King});
+        }
+    }
+    return legalMoves;
+}
+
+void Board::handleCastling(int index, const std::shared_ptr<std::vector<Move>>& legalMoves, bool shortCastleLegal, bool longCastleLegal) {
+    if (longCastleLegal && _squares[index - 1] == Piece::None && _squares[index - 2] == Piece::None && _squares[index-3] == Piece::None) {
+        legalMoves->push_back({index, index-2, Piece::King, MoveType::LongCastle});
+    }
+    if (shortCastleLegal && _squares[index + 1] == Piece::None && _squares[index + 2] == Piece::None) {
+        legalMoves->push_back({index, index+2, Piece::King, MoveType::ShortCastle});
+    }
+}
+
+void Board::updateAttackSquares() {
+    for (int i = 0; i < 64; ++i) {
+        switch (_squares[i]) {
+            case Piece::None:
+                continue;
+            case Piece::Rook:
+            case Piece::Bishop:
+            case Piece::Knight:
+            case Piece::Queen:
+            case Piece::King:
+            case Piece::Pawn:
+            default: break;
+        }
+    }
+}
+
+void Board::updateAttackSquares(Move move) {
+
+}
+
+
+Move Board::getRandomMove() {
+    std::vector<Move> moves = generateMoves(true);
+
+    if (moves.empty()) {
+        throw std::out_of_range("No moves available");
+    }
+
+    // Create a random number generator
+    std::random_device rd;  // Obtain a random number from hardware
+    std::mt19937 gen(rd()); // Seed the generator
+    std::uniform_int_distribution<> distr(0, moves.size() - 1); // Define the range
+
+    // Get a random index
+    int randomIndex = distr(gen);
+
+    // Return the move at the random index
+    return moves[randomIndex];
+}
+
+void Board::logGameStatistics() {
+
 }

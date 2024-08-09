@@ -18,10 +18,12 @@ private:
     Board _board;
     unsigned int _size;
     bool _playsWhite = true;
-    bool _whiteToMove;
+    bool _whiteToMove = true;
+    bool _playComputer;
     std::vector<std::shared_ptr<ChessPiece>> _pieces;
     std::vector<Move> _legalMoves;
     std::map<int, std::shared_ptr<Texture2D>> _assets;
+    std::map<std::string, std::shared_ptr<Sound>> _sounds;
     std::shared_ptr<ChessPiece> _draggedPiece;
     Vector2 _dragOffset;
     Color _black = Color{126,149,94,255};
@@ -30,11 +32,16 @@ private:
     Color _lightRed = Color{255, 0, 0, 100};
 
     Vector2 _fallbackPosition;
+
+    Vector2 calculatePiecePosition(int index);
+
+    void loadAssets();
+    void loadSounds();
+    void playSound(Move move);
 public:
     explicit ChessBoard(unsigned int size, bool plays_white);
     void printBoard();
     void updateBoard();
-    void loadAssets();
     void addPiece(std::shared_ptr<ChessPiece> piece);
     std::shared_ptr<ChessPiece> findPiece(int boardIndex);
     void removePiece(int boardIndex);

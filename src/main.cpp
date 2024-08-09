@@ -8,6 +8,8 @@ int main(void)
 {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Window title");
     SetTargetFPS(60);
+    InitAudioDevice();
+    SetTraceLogLevel(LOG_WARNING);
 
     ChessBoard board(SCREEN_HEIGHT, true);
     board.printBoard();

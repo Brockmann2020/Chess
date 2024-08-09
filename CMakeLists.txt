@@ -16,6 +16,7 @@ set(SRC_FILES
         src/engine/board.cpp
         src/engine/piece.cpp
         src/gui/chesspiece.cpp
+        include/engine/move.h
 )
 
 set(INCLUDE_DIRS
@@ -36,6 +37,12 @@ target_include_directories(${EXECUTABLE_NAME} PRIVATE ${INCLUDE_DIRS})
 
 target_link_libraries(ChessBot PRIVATE ${CMAKE_CURRENT_LIST_DIR}/lib/raylib/lib/raylib.dll)
 target_compile_definitions(ChessBot PUBLIC ASSETS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/assets/") # Set the asset path macro to the absolute path on the dev machine
+
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(ChessBot PUBLIC DEBUG)
+elseif(CMAKE_BUILD_TYPE STREQUAL "PlayAi")
+    target_compile_definitions(ChessBot PUBLIC PLAY_AI)
+elseif(CMAKE_BUILD_TYPE STREQUAL "PlayAiDebug")
+    target_compile_definitions(ChessBot PUBLIC PLAY_AI DEBUG)
+    set(CMAKE_CXX_FLAGS_PLAYAIDEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
 endif()
