@@ -73,7 +73,7 @@ const std::array<int, 64>& Board::getSquares() const {
     return _squares;
 }
 
-std::vector<Move> Board::generateMoves(bool updateAttackMap) {
+std::vector<Move> Board::generateMoves(int depth) {
     std::vector<Move> moves;
     int moveCount = 0;
     for (int i = 0; i < _squares.size(); i++) {
@@ -108,17 +108,17 @@ std::vector<Move> Board::generateMovesForPiece(int index) {
     std::vector<std::array<int, 2>> queenPatterns = {{1,0}, {0,1}, {-1,0}, {0,-1}, {1,1}, {1,-1}, {-1,1}, {-1,-1}};
 
     switch (piece & 7) {
-        case Piece::Pawn: return generatePawnMoves(index, isWhite, false);
-        case Piece::Knight: return generateSimpleMoves(index, isWhite, knightPatterns, true, false);
-        case Piece::Bishop: return generateSimpleMoves(index, isWhite, bishopPatterns, false, false);
-        case Piece::Rook: return generateSimpleMoves(index, isWhite, rookPatterns, false, false);
-        case Piece::Queen: return generateSimpleMoves(index, isWhite, queenPatterns, false, false);
-        case Piece::King: return generateKingMoves(index, isWhite, false);
+        case Piece::Pawn: return generatePawnMoves(index, isWhite);
+        case Piece::Knight: return generateSimpleMoves(index, isWhite, knightPatterns, true);
+        case Piece::Bishop: return generateSimpleMoves(index, isWhite, bishopPatterns, false);
+        case Piece::Rook: return generateSimpleMoves(index, isWhite, rookPatterns, false);
+        case Piece::Queen: return generateSimpleMoves(index, isWhite, queenPatterns, false);
+        case Piece::King: return generateKingMoves(index, isWhite);
         default: return {};
     }
 }
 
-std::vector<Move> Board::generatePawnMoves(int index, bool isWhite, bool updateAttackMap) {
+std::vector<Move> Board::generatePawnMoves(int index, bool isWhite) {
     std::vector<Move> moves;
     int direction = isWhite ? -1 : 1;
     int startRow = isWhite ? 6 : 1;
@@ -133,15 +133,15 @@ std::vector<Move> Board::generatePawnMoves(int index, bool isWhite, bool updateA
 
     // Regular Move
     if ((_squares[index + 8 * direction] & 7) == Piece::None) {
-        moves.push_back({index, index + 8 * direction});
+        moves.push_back({index, index + 8 * direction, Piece::Pawn, MoveType::Regular});
     }
 
     // Captures
     if (index % 8 != 0 && (_squares[index + 7 * direction] & 7) != Piece::None && (_squares[index + 7 * direction] & 8) != (_squares[index] & 8)) {
-        moves.push_back({index, index + 7 * direction});
+        moves.push_back({index, index + 7 * direction, Piece::Pawn, MoveType::Regular});
     }
     if (index % 8 != 7 && (_squares[index + 9 * direction] & 7) != Piece::None && (_squares[index + 9 * direction] & 8) != (_squares[index] & 8)) {
-        moves.push_back({index, index + 9 * direction});
+        moves.push_back({index, index + 9 * direction, Piece::Pawn, MoveType::Regular});
     }
 
     // En Passant
@@ -154,11 +154,11 @@ std::vector<Move> Board::generatePawnMoves(int index, bool isWhite, bool updateA
                 if (lastMove.target / 8 == enPassantRow) {
                     // Check left capture
                     if (lastMove.target == index + 1 && index % 8 != 0) {
-                        moves.push_back({index, index + 7 * direction, Piece::Pawn, true});
+                        moves.push_back({index, index + 7 * direction, Piece::Pawn, MoveType::EnPassant});
                     }
                     // Check right capture
                     if (lastMove.target == index - 1 && index % 8 != 7) {
-                        moves.push_back({index, index + 9 * direction, Piece::Pawn, true});
+                        moves.push_back({index, index + 9 * direction, Piece::Pawn, MoveType::EnPassant});
                     }
                 }
             }
@@ -168,7 +168,7 @@ std::vector<Move> Board::generatePawnMoves(int index, bool isWhite, bool updateA
     return moves;
 }
 
-std::vector<Move> Board::generateSimpleMoves(int index, bool isWhite, std::vector<std::array<int, 2>> movePatterns, bool limit, bool updateAttackMap) {
+std::vector<Move> Board::generateSimpleMoves(int index, bool isWhite, std::vector<std::array<int, 2>> movePatterns, bool limit) {
     std::vector<Move> moves;
 
     int rank = index / 8;
@@ -184,7 +184,7 @@ std::vector<Move> Board::generateSimpleMoves(int index, bool isWhite, std::vecto
             if (newRank >= 0 && newRank < 8 && newFile >= 0 && newFile < 8) {
                 int newIndex = newRank * 8 + newFile;
                 if ((_squares[newIndex] & 7) == Piece::None || (_squares[newIndex] & 8) != (_squares[index] & 8)) {
-                    moves.push_back({index, newIndex, _squares[newIndex] & 7});
+                    moves.push_back({index, newIndex, _squares[newIndex] & 7, MoveType::Regular});
                     // Stop if it's a capture
                     if ((_squares[newIndex] & 7) != Piece::None) {
                         break;
@@ -206,7 +206,7 @@ std::vector<Move> Board::generateSimpleMoves(int index, bool isWhite, std::vecto
     return moves;
 }
 
-std::vector<Move> Board::generateKingMoves(int index, bool isWhite, bool updateAttackMap) {
+std::vector<Move> Board::generateKingMoves(int index, bool isWhite) {
     std::vector<std::array<int, 2>> KingPatterns = {{1,0}, {0,1}, {-1,0}, {0,-1}, {1,1}, {1,-1}, {-1,1}, {-1,-1}};
     std::vector<int> possibleTargets;
     std::vector<Move> legalMoves;
@@ -250,29 +250,8 @@ void Board::handleCastling(int index, const std::shared_ptr<std::vector<Move>>& 
     }
 }
 
-void Board::updateAttackSquares() {
-    for (int i = 0; i < 64; ++i) {
-        switch (_squares[i]) {
-            case Piece::None:
-                continue;
-            case Piece::Rook:
-            case Piece::Bishop:
-            case Piece::Knight:
-            case Piece::Queen:
-            case Piece::King:
-            case Piece::Pawn:
-            default: break;
-        }
-    }
-}
-
-void Board::updateAttackSquares(Move move) {
-
-}
-
-
 Move Board::getRandomMove() {
-    std::vector<Move> moves = generateMoves(true);
+    std::vector<Move> moves = generateMoves(1);
 
     if (moves.empty()) {
         throw std::out_of_range("No moves available");

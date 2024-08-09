@@ -21,8 +21,6 @@ class Board {
 private:
     bool _whiteToMove = true;
     std::array<int, 64> _squares;
-    std::array<int, 64> _whitesAttacks = {};
-    std::array<int, 64> _blacksAttacks = {};
     std::vector<Move> _moves;
 
     bool _blackLongCastleLegal = true;
@@ -34,14 +32,9 @@ private:
     int _engineCallCount;
     int _movesGenerated;
 
-    void updateAttackSquares();
-    void updateAttackSquares(Move move);
-    std::array<bool, 64> findDiagonalAttackSquares(int targetIndex, bool isKing);
-    std::array<bool, 64> findStaightAttackSquares(int targetIndex, bool isKing);
-    std::array<bool, 64> findKnightAttackSquares(int targetIndex);
-    std::vector<Move> generatePawnMoves(int index, bool isWhite, bool updateAttackMap);
-    std::vector<Move> generateSimpleMoves(int index, bool isWhite, std::vector<std::array<int, 2>> movePatterns, bool limit, bool updateAttackMap);
-    std::vector<Move> generateKingMoves(int index, bool isWhite, bool updateAttackMap);
+    std::vector<Move> generatePawnMoves(int index, bool isWhite);
+    std::vector<Move> generateSimpleMoves(int index, bool isWhite, std::vector<std::array<int, 2>> movePatterns, bool limit);
+    std::vector<Move> generateKingMoves(int index, bool isWhite);
     void handleCastling(int index, const std::shared_ptr<std::vector<Move>>& legalMoves, bool shortCastleLegal, bool longCastleLegal);
 public:
     Board();
@@ -50,7 +43,7 @@ public:
     bool movePiece(Move move);
     const std::array<int, 64>& getSquares() const;
 
-    std::vector<Move> generateMoves(bool updateAttackMap);
+    std::vector<Move> generateMoves(int depth);
     std::vector<Move> generateMovesForPiece(int index);
     Move getRandomMove();
 };

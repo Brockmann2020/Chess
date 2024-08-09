@@ -129,7 +129,7 @@ void ChessBoard::updateBoard() {
                 removePiece(_whiteToMove ? targetSquare + 8 : targetSquare - 8);
             }
             // Capture
-            else if (_board.getSquares()[targetSquare] != Piece::None && nextMove.MoveType == MoveType::Regular) {
+            else if (_board.getSquares()[targetSquare] != Piece::None && nextMove.MoveType == MoveType::Regular || nextMove.MoveType == MoveType::Capture) {
                 removePiece(targetSquare);
                 nextMove.MoveType = MoveType::Capture;
             }
