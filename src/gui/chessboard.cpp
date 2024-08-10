@@ -1,4 +1,5 @@
 #include <iostream>
+#include <dirent.h>
 #include "chessboard.h"
 #include "raylib.h"
 #include "piece.h"
@@ -12,8 +13,18 @@ ChessBoard::ChessBoard(unsigned int size, bool plays_white) {
     _playsWhite = plays_white;
     _whiteToMove = plays_white;
 
+#ifdef PLAY_AI
+    _playComputer = true;
+#elif PLAY_AI_DEBUG
+    _playComputer = true;
+#else
+    _playComputer = false;
+#endif
+    std::cout << "Plays AI: " << _playComputer << "\n";
+
     // ChessPiece Creation:
     loadAssets();
+    loadSounds();
     int square_size = _size / 8;
     float piece_size = (float) _size / 8 * 0.9;
     for (int rank = 0; rank < 8; rank++) {
@@ -35,6 +46,8 @@ ChessBoard::ChessBoard(unsigned int size, bool plays_white) {
             Rectangle piece_collRect = {static_cast<float>(coll_pos_x), static_cast<float>(coll_pos_y), piece_size, piece_size};
             ChessPiece piece = ChessPiece(board_index, piece_id, piece_pos, _assets[piece_id], piece_collRect);
             addPiece(std::make_shared<ChessPiece>(piece));
+
+            PlaySound(*_sounds["start.mp3"]);
         }
     }
 }
@@ -53,7 +66,7 @@ void ChessBoard::printBoard() {
 
             DrawRectangle(pos_x, pos_y, square_size, square_size, isWhite ? _white : _black);
 
-            if (!_legalMoves.empty()) {
+            if (!_legalMoves.empty() && (_whiteToMove || !_playComputer)) {
                 int square = rank * 8 + file;
 
                 for (auto & move : _legalMoves) {
@@ -80,7 +93,9 @@ void ChessBoard::updateBoard() {
                 _dragOffset.y = mousePosition.y - piece->getCollisionRect().y;
                 _fallbackPosition = _draggedPiece->getPos();
 
-                _legalMoves = _board.generateMovesForPiece(_draggedPiece->getBoardIndex());
+                if (_legalMoves.empty()) {
+                    _legalMoves = _board.generateMovesForPiece(_draggedPiece->getBoardIndex());
+                }
                 break;  // Start dragging the first we find at the cursor
             }
         }
@@ -91,14 +106,13 @@ void ChessBoard::updateBoard() {
         _draggedPiece->setPos({mousePosition.x - _dragOffset.x, mousePosition.y - _dragOffset.y});
         Rectangle rect = _draggedPiece->getCollisionRect();
         _draggedPiece->setCollisionRect({mousePosition.x - _dragOffset.x, mousePosition.y - _dragOffset.y, rect.width, rect.height});
-    } else if (_draggedPiece != nullptr && _whiteToMove) {
+    } else if (_draggedPiece != nullptr ) {
 
         // Normalise Position
         int targetSquare = ((int) (mousePosition.x / _squareSize)) + 8 * ((int) (mousePosition.y / _squareSize));
 
         // Move Validation
         bool isLegal = false;
-        //std::vector<Move> moves = _board.generateMovesForPiece(_draggedPiece->getBoardIndex());
         Move nextMove;
         for (auto & move : _legalMoves) {
             if (move.target == targetSquare) {
@@ -108,19 +122,29 @@ void ChessBoard::updateBoard() {
             }
         }
 
-        // Check if target square is empty or has a piece of opposite color
-        if (isLegal) {
-            // Remove Enemy Piece
-            if (nextMove.enPassant) {
+        // Check if Move is legal and if its players turn
+        if (isLegal && (_whiteToMove || !_playComputer)) {
+            // En Passant
+            if (nextMove.MoveType == MoveType::EnPassant) {
                 removePiece(_whiteToMove ? targetSquare + 8 : targetSquare - 8);
-            } else if (_board.getSquares()[targetSquare] != Piece::None) {
-                removePiece(targetSquare);
             }
+            // Capture
+            else if (_board.getSquares()[targetSquare] != Piece::None && nextMove.MoveType == MoveType::Regular || nextMove.MoveType == MoveType::Capture) {
+                removePiece(targetSquare);
+                nextMove.MoveType = MoveType::Capture;
+            }
+            // Castling
+            else if (nextMove.MoveType == MoveType::ShortCastle || nextMove.MoveType == MoveType::LongCastle) {
+                std::shared_ptr<ChessPiece> rook = findPiece(nextMove.MoveType == MoveType::ShortCastle ?
+                        nextMove.origin + 3 : nextMove.origin - 4);
+                rook->movePiece(calculatePiecePosition(nextMove.MoveType == MoveType::ShortCastle ?
+                        nextMove.origin + 1 : nextMove.origin - 1));
+            }
+            playSound(nextMove);
 
-            // Normalize Position
-            int oldIndex = _draggedPiece->getBoardIndex();
+            // Normalize Position & End Move
             _draggedPiece->movePiece(mousePosition);
-            _board.movePiece({oldIndex, _draggedPiece->getBoardIndex(), _draggedPiece->getCode()});
+            _board.movePiece(nextMove);
             _whiteToMove = !_whiteToMove;
             _legalMoves = {};
         } else {
@@ -129,18 +153,67 @@ void ChessBoard::updateBoard() {
             _draggedPiece->setCollisionRect({_fallbackPosition.x, _fallbackPosition.y, _draggedPiece->getCollisionRect().width, _draggedPiece->getCollisionRect().height});
             _legalMoves = {};
         }
-
-        // End Move
         _draggedPiece = nullptr;  // Stop dragging
+    }
+
+    // Computers Turn
+    if (_playComputer && !_whiteToMove) {
+        Move move = _board.getRandomMove();
+        std::shared_ptr<ChessPiece> piece = findPiece(move.origin);
+
+        // Check if it's a capture
+        if ((_board.getSquares()[move.target] & 7) != Piece::None) {
+            if (move.MoveType == MoveType::EnPassant) {
+                removePiece(_whiteToMove ? move.target + 8 : move.target - 8);
+            } else if (_board.getSquares()[move.target] != Piece::None) {
+                removePiece(move.target);
+            }
+        }
+
+        piece->movePiece(calculatePiecePosition(move.target));
+        _board.movePiece(move);
+        _whiteToMove = !_whiteToMove;
     }
 
     // Drawing and other updates
     for (const auto& piece : _pieces) {
         DrawTexture(*piece->getTexture(), piece->getPos().x, piece->getPos().y, WHITE);
-        #ifdef DEBUG
+#ifdef DEBUG
         DrawRectangleLines(piece->getCollisionRect().x, piece->getCollisionRect().y, piece->getCollisionRect().width, piece->getCollisionRect().height, RED);
-        #endif
+#elif PLAY_AI_DEBUG
+        DrawRectangleLines(piece->getCollisionRect().x, piece->getCollisionRect().y, piece->getCollisionRect().width, piece->getCollisionRect().height, RED);
+#endif
     }
+}
+
+void ChessBoard::playSound(Move move) {
+    switch (move.MoveType) {
+        case MoveType::EnPassant:
+        case MoveType::Capture:
+            PlaySound(*_sounds["capture.mp3"]);
+            break;
+        case MoveType::ShortCastle:
+        case MoveType::LongCastle:
+            PlaySound(*_sounds["castle.mp3"]);
+            break;
+        case MoveType::Check:
+            PlaySound(*_sounds["check.mp3"]);
+            break;
+        case MoveType::Promote:
+            PlaySound(*_sounds["promote.mp3"]);
+        default:
+            PlaySound(*_sounds["move.mp3"]);
+    }
+}
+
+Vector2 ChessBoard::calculatePiecePosition(int index) {
+    int row = index / 8;
+    int column = index % 8;
+
+    float x = column * _squareSize;
+    float y = row * _squareSize;
+
+    return Vector2{x, y};
 }
 
 void ChessBoard::loadAssets() {
@@ -161,6 +234,22 @@ void ChessBoard::loadAssets() {
             UnloadImage(image);
         }
         color = "Black_";
+    }
+}
+
+void ChessBoard::loadSounds() {
+    DIR* dir;
+    struct dirent* ent;
+    if ((dir = opendir(ASSETS_PATH)) != nullptr) {
+        while ((ent = readdir(dir)) != nullptr) {
+            if (IsFileExtension(ent->d_name, ".mp3")) {
+                std::shared_ptr<Sound> sound = std::make_shared<Sound>(LoadSound((std::string(ASSETS_PATH) + ent->d_name).c_str()));
+                _sounds[ent->d_name] = sound;
+            }
+        }
+        closedir(dir);
+    } else {
+        perror("Could not open directory");
     }
 }
 
