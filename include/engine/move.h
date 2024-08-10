@@ -7,11 +7,13 @@ struct Move {
     int origin{};
     int target{};
     int piece{};
+    
     int MoveType{0};
 };
 
 class MoveType {
 public:
+    static const int None = 0;
     static const int Regular = 1;
     static const int EnPassant = 2;
     static const int ShortCastle = 4;

@@ -16,7 +16,7 @@ set(SRC_FILES
         src/engine/board.cpp
         src/engine/piece.cpp
         src/gui/chesspiece.cpp
-        include/engine/move.h
+        src/engine/attacktree.cpp
 )
 
 set(INCLUDE_DIRS

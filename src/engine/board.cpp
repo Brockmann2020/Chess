@@ -29,15 +29,17 @@ Board::Board() {
 
 bool Board::movePiece(Move move) {
 
+    // Handle Castling
     if (move.MoveType == MoveType::ShortCastle || move.MoveType == MoveType::LongCastle) {
-        // Handle Castling
         int king = _squares[move.origin];
         int rook = _squares[move.MoveType == MoveType::ShortCastle ? move.origin + 3 : move.origin - 4];
-        _squares[move.MoveType == MoveType::ShortCastle ? move.origin + 1 : move.origin - 1] = rook;
-        _squares[move.target] = king;
-        _squares[move.origin] = Piece::None;
-    } else {
-        // Regular Move
+        _squares[move.MoveType == MoveType::ShortCastle ? move.origin + 1 : move.origin - 1] = rook; // Set Rook
+        _squares[move.target] = king; // Set King
+        _squares[move.origin] = Piece::None; // Remove King
+        _squares[move.MoveType == MoveType::ShortCastle ? move.origin + 3 : move.origin - 4] = Piece::None; // Remove Rook
+    }
+    // Regular Move
+    else {
         int draggedPiece = _squares[move.origin];
         _squares[move.origin] = Piece::None;
         _squares[move.target] = draggedPiece;
@@ -63,6 +65,13 @@ bool Board::movePiece(Move move) {
             _blackLongCastleLegal = false;
         }
     }
+
+    // Handle En Passant
+    if (move.MoveType == MoveType::EnPassant) {
+        int target_square = _whiteToMove ? move.target + 8 : move.target - 8;
+        _squares[target_square] = Piece::None;
+    }
+
     _moveCount++;
     _whiteToMove = !_whiteToMove;
     _moves.push_back(move);
@@ -104,8 +113,8 @@ std::vector<Move> Board::generateMovesForPiece(int index) {
 
     std::vector<std::array<int, 2>> knightPatterns = {{-2, -1}, {-2, 1}, {-1, -2}, {-1, 2}, {1, -2}, {1, 2}, {2, -1}, {2, 1}};
     std::vector<std::array<int, 2>> bishopPatterns = {{1,1}, {1,-1}, {-1,1}, {-1,-1}};
-    std::vector<std::array<int, 2>> rookPatterns = {{1,0}, {0,1}, {-1,0}, {0,-1}};
-    std::vector<std::array<int, 2>> queenPatterns = {{1,0}, {0,1}, {-1,0}, {0,-1}, {1,1}, {1,-1}, {-1,1}, {-1,-1}};
+    std::vector<std::array<int, 2>>   rookPatterns = {{1,0}, {0,1}, {-1,0}, {0,-1}};
+    std::vector<std::array<int, 2>>  queenPatterns = {{1,0}, {0,1}, {-1,0}, {0,-1}, {1,1}, {1,-1}, {-1,1}, {-1,-1}};
 
     switch (piece & 7) {
         case Piece::Pawn: return generatePawnMoves(index, isWhite);
@@ -138,10 +147,10 @@ std::vector<Move> Board::generatePawnMoves(int index, bool isWhite) {
 
     // Captures
     if (index % 8 != 0 && (_squares[index + 7 * direction] & 7) != Piece::None && (_squares[index + 7 * direction] & 8) != (_squares[index] & 8)) {
-        moves.push_back({index, index + 7 * direction, Piece::Pawn, MoveType::Regular});
+        moves.push_back({index, index + 7 * direction, Piece::Pawn, MoveType::Capture});
     }
     if (index % 8 != 7 && (_squares[index + 9 * direction] & 7) != Piece::None && (_squares[index + 9 * direction] & 8) != (_squares[index] & 8)) {
-        moves.push_back({index, index + 9 * direction, Piece::Pawn, MoveType::Regular});
+        moves.push_back({index, index + 9 * direction, Piece::Pawn, MoveType::Capture});
     }
 
     // En Passant
@@ -235,7 +244,7 @@ std::vector<Move> Board::generateKingMoves(int index, bool isWhite) {
 
     for (auto & move : possibleTargets) {
         if ((_squares[move] & 7) == Piece::None || (_squares[move] & 8) != (_squares[index] & 8)) {
-            legalMoves.push_back({index, move, Piece::King});
+            legalMoves.push_back({index, move, Piece::King, MoveType::Regular});
         }
     }
     return legalMoves;
