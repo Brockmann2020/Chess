@@ -1,31 +1,40 @@
 #include "piece.h"
 #include "memory"
 #include "vector"
+#include "map"
 
 #ifndef CHESSBOT_ATTACKTREE_H
 #define CHESSBOT_ATTACKTREE_H
 
-#endif //CHESSBOT_ATTACKTREE_H
 
+struct AttackMapVector {
+    AttackMapVector(int x, int y);
 
-struct Direction {
-    int x{};
-    int y{};
+    int _x{};
+    int _y{};
+
+    int dist_till_blocked{0};
+    bool looks_at_eob{false};
+    bool looks_at_check{false};
+    bool looks_at_friendly_piece{false};
+    bool looks_at_enemy_piece{false};
+
+    std::shared_ptr<AttackMapVector> child{};
 };
 
-struct TreeNode {
-    Direction direction{};
-    bool isEndOfBoard{false};
-    bool isEnemyKing{false};
-    bool isFriendlyPiece{false};
-    bool isEnemyPiece{false};
-    std::unique_ptr<TreeNode> child{};
-};
-
-class AttackTree {
-private:
-public:
+struct AttackMapRoot {
     int piece;
-    std::vector<std::shared_ptr<TreeNode>> children;
-    bool isRecursive;
+    bool isSlidingPiece;
+    std::vector<std::shared_ptr<AttackMapVector>> mapData;
 };
+
+class AttackMap {
+private:
+    std::map<int, std::shared_ptr<AttackMapRoot>> _attackTrees;
+public:
+    std::shared_ptr<AttackMapRoot> addAttackTree(int index, const AttackMapRoot& root);
+    std::shared_ptr<AttackMapRoot> getAttackTreeForPiece(int index);
+};
+
+
+#endif //CHESSBOT_ATTACKTREE_H

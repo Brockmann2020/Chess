@@ -2,7 +2,6 @@
 #include <dirent.h>
 #include "chessboard.h"
 #include "raylib.h"
-#include "piece.h"
 #include "algorithm"
 
 float ChessBoard::_squareSize = 0;

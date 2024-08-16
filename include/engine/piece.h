@@ -2,7 +2,6 @@
 #ifndef CHESS_PIECE_H
 #define CHESS_PIECE_H
 
-#endif //CHESS_PIECE_H
 
 #include "raylib.h"
 #include <string>
@@ -35,3 +34,6 @@ public:
 
 
 };
+
+
+#endif //CHESS_PIECE_H

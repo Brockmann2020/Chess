@@ -8,6 +8,7 @@
 #include "string"
 #include "array"
 #include "move.h"
+#include "attacktree.h"
 
 /*struct Move {
     int origin;
@@ -22,6 +23,7 @@ private:
     bool _whiteToMove = true;
     std::array<int, 64> _squares;
     std::vector<Move> _moves;
+    AttackMap _attackTree;
 
     bool _blackLongCastleLegal = true;
     bool _blackShortCastleLegal = true;
@@ -36,6 +38,7 @@ private:
     std::vector<Move> generateSimpleMoves(int index, bool isWhite, std::vector<std::array<int, 2>> movePatterns, bool limit);
     std::vector<Move> generateKingMoves(int index, bool isWhite);
     void handleCastling(int index, const std::shared_ptr<std::vector<Move>>& legalMoves, bool shortCastleLegal, bool longCastleLegal);
+    std::shared_ptr<AttackMapRoot> populateAttackTree(int index, std::vector<std::array<int, 2>> movePatterns);
 public:
     Board();
     std::string generatePGN();
