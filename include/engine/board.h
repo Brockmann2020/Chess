@@ -38,6 +38,7 @@ private:
     std::vector<Move> generateSimpleMoves(int index, bool isWhite, std::vector<std::array<int, 2>> movePatterns, bool limit);
     std::vector<Move> generateKingMoves(int index, bool isWhite);
     void handleCastling(int index, const std::shared_ptr<std::vector<Move>>& legalMoves, bool shortCastleLegal, bool longCastleLegal);
+    void handlePawnCaptures(int x, int y, int attacked_square, std::unique_ptr<AttackMapRoot> root);
     std::shared_ptr<AttackMapRoot> populateAttackTree(int index, std::vector<std::array<int, 2>> movePatterns);
 public:
     Board();

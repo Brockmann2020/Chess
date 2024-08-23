@@ -136,29 +136,39 @@ std::vector<Move> Board::generatePawnMoves(int index, bool isWhite) {
 
     // Generate Attack Tree Root
     AttackMapRoot root = AttackMapRoot();
-    root.piece = index & 7;
+    root.piece = _squares[index];
     root.isSlidingPiece = false;
 
     // First Move
     if (index / 8 == startRow) {
         if ((_squares[index + 16 * direction] & 7) == Piece::None && (_squares[index + 8 * direction] & 7) == Piece::None) {
-            moves.push_back({index, index + 16 * direction});
-            root.mapData.push_back(std::make_shared<AttackMapVector>(0, 2));
+            int target = index + 16 * direction;
+            moves.push_back({index, target, Piece::Pawn, MoveType::Regular});
+            std::shared_ptr<AttackMapVector> attackVector = std::make_shared<AttackMapVector>(0, 2 * direction);
+            attackVector->attackedSquares.push_back(target);
+            root.mapData.push_back(attackVector);
         }
     }
 
     // Regular Move
     if ((_squares[index + 8 * direction] & 7) == Piece::None) {
-        moves.push_back({index, index + 8 * direction, Piece::Pawn, MoveType::Regular});
-        root.mapData.push_back(std::make_shared<AttackMapVector>(0, 1));
+        int target = index + 8 * direction;
+        moves.push_back({index, target, Piece::Pawn, MoveType::Regular});
+        std::shared_ptr<AttackMapVector> attackVector = std::make_shared<AttackMapVector>(0, direction);
+        attackVector->attackedSquares.push_back(target);
+        root.mapData.push_back(attackVector);
     }
 
     // Captures
     if (index % 8 != 0 && (_squares[index + 7 * direction] & 7) != Piece::None && (_squares[index + 7 * direction] & 8) != (_squares[index] & 8)) {
-        moves.push_back({index, index + 7 * direction, Piece::Pawn, MoveType::Capture});
+        int target = index + 7 * direction;
+        moves.push_back({index, target, Piece::Pawn, MoveType::Capture});
+        handlePawnCaptures(-1, direction, target,  std::make_unique<AttackMapRoot>(root));
     }
     if (index % 8 != 7 && (_squares[index + 9 * direction] & 7) != Piece::None && (_squares[index + 9 * direction] & 8) != (_squares[index] & 8)) {
-        moves.push_back({index, index + 9 * direction, Piece::Pawn, MoveType::Capture});
+        int target = index + 9 * direction;
+        moves.push_back({index, target, Piece::Pawn, MoveType::Capture});
+        handlePawnCaptures(1, direction, target, std::make_unique<AttackMapRoot>(root));
     }
 
     // En Passant
@@ -171,11 +181,15 @@ std::vector<Move> Board::generatePawnMoves(int index, bool isWhite) {
                 if (lastMove.target / 8 == enPassantRow) {
                     // Check left capture
                     if (lastMove.target == index + 1 && index % 8 != 0) {
-                        moves.push_back({index, index + 7 * direction, Piece::Pawn, MoveType::EnPassant});
+                        int target = index + 7 * direction;
+                        moves.push_back({index, target, Piece::Pawn, MoveType::EnPassant});
+                        handlePawnCaptures(-1, direction, target, std::make_unique<AttackMapRoot>(root));
                     }
                     // Check right capture
                     if (lastMove.target == index - 1 && index % 8 != 7) {
-                        moves.push_back({index, index + 9 * direction, Piece::Pawn, MoveType::EnPassant});
+                        int target = index + 9 * direction;
+                        moves.push_back({index, target, Piece::Pawn, MoveType::EnPassant});
+                        handlePawnCaptures(1, direction, target, std::make_unique<AttackMapRoot>(root));
                     }
                 }
             }
@@ -183,6 +197,13 @@ std::vector<Move> Board::generatePawnMoves(int index, bool isWhite) {
     }
 
     return moves;
+}
+
+void Board::handlePawnCaptures(int x, int y, int attacked_square, std::unique_ptr<AttackMapRoot> root) {
+    std::shared_ptr<AttackMapVector> v = std::make_shared<AttackMapVector>(x, y);
+    v->looks_at_enemy_piece = true;
+    root->mapData.push_back(v);
+    _attackTree.addAttackTree(attacked_square, *root);
 }
 
 std::vector<Move> Board::generateSimpleMoves(int index, bool isWhite, std::vector<std::array<int, 2>> movePatterns, bool limit) {
@@ -215,27 +236,33 @@ std::vector<Move> Board::generateSimpleMoves(int index, bool isWhite, std::vecto
                     if (legal) {
                         moves.push_back({index, newIndex, _squares[newIndex] & 7, MoveType::Regular});
                     }
-                    mapVector->dist_till_blocked++;
+                    mapVector->attackedSquares.push_back(file * rank);
 
                     // Stop if it's a capture
                     if ((_squares[newIndex] & 7) != Piece::None) {
                         mapVector->looks_at_enemy_piece = true;
+                        mapVector->attackedSquares.push_back(file * rank);
+                        // Looks at enemy king
                         if ((_squares[newIndex] & 7) == Piece::King) {
                             mapVector->looks_at_check = true;
                         }
+                        // Looks at enemy piece
                         std::shared_ptr<AttackMapVector> child = std::make_shared<AttackMapVector>(mapVector->_x, mapVector->_y);
                         mapVector->child = child;
                         mapVector = child;
                         legal = false;
                     }
                 } else {
+                    // Looks at friendly piece
                     mapVector->looks_at_friendly_piece = true;
+                    mapVector->attackedSquares.push_back(file * rank);
                     std::shared_ptr<AttackMapVector> child = std::make_shared<AttackMapVector>(mapVector->_x, mapVector->_y);
                     mapVector->child = child;
                     mapVector = child;
                     legal = false;
                 }
             } else {
+                // Looks at End of Board
                 mapVector->looks_at_eob = true;
                 break; // Out of board bounds
             }
@@ -299,6 +326,7 @@ std::shared_ptr<AttackMapRoot> Board::populateAttackTree(int index, std::vector<
     int piece = _squares[index];
     int pieceType = piece & 7;
     tree.piece = piece;
+    //tree.index = index;
 
     // Is Sliding Piece?
     switch (pieceType) {

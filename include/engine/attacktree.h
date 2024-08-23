@@ -9,11 +9,13 @@
 
 struct AttackMapVector {
     AttackMapVector(int x, int y);
+    AttackMapVector(int x, int y, int attacked_square);
 
-    int _x{};
-    int _y{};
+    std::vector<int> attackedSquares;
 
-    int dist_till_blocked{0};
+    int _x{0};
+    int _y{0};
+
     bool looks_at_eob{false};
     bool looks_at_check{false};
     bool looks_at_friendly_piece{false};
@@ -23,6 +25,7 @@ struct AttackMapVector {
 };
 
 struct AttackMapRoot {
+    //int index;
     int piece;
     bool isSlidingPiece;
     std::vector<std::shared_ptr<AttackMapVector>> mapData;
